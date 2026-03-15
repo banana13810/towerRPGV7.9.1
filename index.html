@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>塔RPG Ver7.9.1</title>
+<title>塔RPG Ver8.0</title>
 
 <style>
 body{
@@ -47,18 +47,6 @@ font-size:16px;
 border-radius:6px;
 }
 
-.item{
-background:#222;
-padding:6px;
-margin:5px;
-border-radius:8px;
-}
-
-.common{color:white}
-.rare{color:#66aaff}
-.epic{color:#cc66ff}
-.legend{color:gold}
-.mythic{color:red}
 </style>
 </head>
 
@@ -66,7 +54,7 @@ border-radius:8px;
 
 <div class="game">
 
-<h2>🏯塔RPG Ver7.9.1</h2>
+<h2>🏯塔RPG Ver8.0</h2>
 
 <h3 id="enemy"></h3>
 
@@ -92,12 +80,11 @@ border-radius:8px;
 
 <div>💰 <span id="gold"></span></div>
 
-<div>状態異常: <span id="status"></span></div>
-
 <button id="attackBtn">⚔攻撃</button>
 <button id="autoBtn">🔴オート戦闘OFF</button>
+<button onclick="next()">⬆次の階</button>
 
-<br>
+<br><br>
 
 <label>オート優先スキル
 <select id="prioritySkill">
@@ -113,32 +100,13 @@ border-radius:8px;
 
 <hr>
 
-<h3>🎒装備</h3>
-
-<button onclick="sortAtk()">ATK順</button>
-<button onclick="sortRare()">レア順</button>
-
-<div id="inventory"></div>
-
-<hr>
-
-<h3>🏪ショップ</h3>
-
-<button onclick="buyPotion()">HPポーション 20G</button>
-<button onclick="useStatusPotion()">💊状態異常回復 50G</button>
-<button onclick="gacha()">装備ガチャ 100G</button>
-
-<hr>
-
-<button onclick="save()">💾セーブ</button>
-
 <div id="log"></div>
 
 </div>
 
 <script>
 
-/* 初期データ */
+/* 基本 */
 
 let floor=1
 let level=1
@@ -156,12 +124,9 @@ let defense=2
 
 let gold=0
 
-let enemy="スライム"
-let enemyHP=20
-let enemyMax=20
-
-let playerStatus=[]
-let enemyStatus=[]
+let enemy=""
+let enemyHP=0
+let enemyMax=0
 
 let auto=false
 let nextFloor=false
@@ -169,29 +134,28 @@ let prioritySkill=2
 
 let logHistory=[]
 
-let inventory=[]
-
-let rarity=["common","rare","epic","legend","mythic"]
-let rarityOrder={common:1,rare:2,epic:3,legend:4,mythic:5}
-
 /* ログ */
 
 function log(t){
+
 logHistory.unshift(t)
+
 if(logHistory.length>6)logHistory.pop()
+
 document.getElementById("log").innerHTML=logHistory.join("<br>")
+
 }
 
 /* 敵生成 */
 
 function spawnEnemy(){
 
-enemyMax=20+floor*5
-enemyHP=enemyMax
-
 let list=["スライム","ゴブリン","オオカミ","骸骨"]
 
 enemy=list[Math.floor(Math.random()*list.length)]
+
+enemyMax=20+floor*5
+enemyHP=enemyMax
 
 if(floor%10==0){
 enemy="🐉ボス"
@@ -200,6 +164,7 @@ enemyHP=enemyMax
 }
 
 document.getElementById("enemy").innerText=enemy
+
 }
 
 /* 攻撃 */
@@ -211,8 +176,10 @@ if(enemyHP<=0)return
 let dmg=attack
 
 if(Math.random()<0.15){
+
 dmg*=2
 log("⚡クリティカル")
+
 }
 
 enemyHP-=dmg
@@ -223,9 +190,14 @@ playerMP+=5
 if(playerMP>playerMaxMP)playerMP=playerMaxMP
 
 if(enemyHP<=0){
+
 gold+=10+floor
 exp+=5
+
+log("敵撃破")
+
 nextFloor=true
+
 }
 
 enemyAttack()
@@ -240,12 +212,8 @@ function enemyAttack(){
 
 if(enemyHP<=0)return
 
-if(enemy=="🐉ボス"){
-bossAI()
-return
-}
+let dmg=5+floor-defense
 
-let dmg=5-defense
 if(dmg<1)dmg=1
 
 playerHP-=dmg
@@ -253,43 +221,37 @@ playerHP-=dmg
 log("敵攻撃 "+dmg)
 
 if(playerHP<=0){
+
 alert("ゲームオーバー")
+
 location.reload()
-}
 
 }
 
-/* ボスAI */
-
-function bossAI(){
-
-if(enemyHP<=enemyMax*0.5 && Math.random()<0.4){
-
-let heal=Math.floor(enemyMax*0.2)
-
-enemyHP+=heal
-
-log("🐉ボス回復 "+heal)
-
-return
 }
 
-let dmg=10+Math.floor(Math.random()*10)
+/* レベルアップ */
 
-playerHP-=dmg
+function levelUp(){
 
-log("🐉ボス攻撃 "+dmg)
+if(exp>=expMax){
 
-if(Math.random()<0.2){
-playerStatus.push({icon:"🔥",type:"burn",turns:3})
-}
+exp-=expMax
 
-if(Math.random()<0.15){
-playerStatus.push({icon:"⚡",type:"paralysis",turns:2})
-}
+level++
 
-if(Math.random()<0.1){
-playerStatus.push({icon:"❄",type:"freeze",turns:1})
+expMax=Math.floor(expMax*1.4)
+
+playerMax+=20
+playerMaxMP+=10
+attack+=2
+defense+=1
+
+playerHP=playerMax
+playerMP=playerMaxMP
+
+log("✨レベルアップ Lv"+level)
+
 }
 
 }
@@ -302,98 +264,106 @@ let skills=[
 name:"🔥ファイア",
 cost:20,
 action(){
+
 if(playerMP<20)return
+
 playerMP-=20
+
 enemyHP-=attack*3
+
 log("🔥ファイア")
+
 }
+
 },
 
 {
 name:"💧アイス",
 cost:15,
 action(){
+
 if(playerMP<15)return
+
 playerMP-=15
+
 enemyHP-=attack*1.5
 
-if(Math.random()<0.5){
-enemyStatus.push({icon:"❄",type:"freeze",turns:1})
-log("❄氷結")
+log("💧アイス")
+
 }
-}
+
 },
 
 {
 name:"⚡サンダー",
 cost:25,
 action(){
+
 if(playerMP<25)return
+
 playerMP-=25
+
 enemyHP-=attack*2
 
-if(Math.random()<0.5){
-enemyStatus.push({icon:"⚡",type:"paralysis",turns:2})
-log("⚡麻痺")
+log("⚡サンダー")
+
 }
-}
+
 },
 
 {
 name:"💖ヒール",
 cost:15,
 action(){
+
 if(playerMP<15)return
+
 playerMP-=15
+
 playerHP+=30
+
 if(playerHP>playerMax)playerHP=playerMax
+
+log("💖回復")
+
 }
+
 },
 
 {
 name:"🛡バリア",
 cost:20,
 action(){
+
 if(playerMP<20)return
+
 playerMP-=20
+
 defense+=5
+
 setTimeout(()=>defense-=5,5000)
+
+log("🛡防御UP")
+
 }
+
 }
 
 ]
 
-/* スキル描画 */
+/* スキル表示 */
 
 function drawSkills(){
 
 let html=""
 
 skills.forEach((s,i)=>{
-html+=`<button onclick="skills[${i}].action()">${s.name}</button>`
+
+html+=`<button onclick="skills[${i}].action();enemyAttack();update();">${s.name}</button>`
+
 })
 
 document.getElementById("skills").innerHTML=html
-
-}
-
-/* 状態表示 */
-
-function update(){
-
-document.getElementById("floor").innerText=floor
-document.getElementById("hp").innerText=playerHP+"/"+playerMax
-document.getElementById("mp").innerText=playerMP+"/"+playerMaxMP
-document.getElementById("level").innerText=level
-document.getElementById("exp").innerText=exp+"/"+expMax
-document.getElementById("gold").innerText=gold
-
-document.getElementById("enemyHP").innerText=enemyHP+"/"+enemyMax
-
-document.getElementById("hpbar").style.width=(playerHP/playerMax*100)+"%"
-document.getElementById("enemybar").style.width=(enemyHP/enemyMax*100)+"%"
-
-document.getElementById("status").innerText=playerStatus.map(s=>s.icon).join(" ")
 
 }
 
@@ -401,8 +371,15 @@ document.getElementById("status").innerText=playerStatus.map(s=>s.icon).join(" "
 
 function next(){
 
+if(!nextFloor)return
+
 floor++
+
+nextFloor=false
+
 spawnEnemy()
+
+update()
 
 }
 
@@ -413,20 +390,34 @@ function autoBattle(){
 if(!auto)return
 
 if(nextFloor){
-nextFloor=false
+
 next()
+
 return
+
 }
 
-if(enemyHP<=0)return
+let skill=skills[prioritySkill]
+
+if(playerMP>=skill.cost){
+
+skill.action()
+
+enemyAttack()
+
+}else{
 
 playerAttack()
 
 }
 
+update()
+
+}
+
 setInterval(autoBattle,1000)
 
-/* ボタン */
+/* UI */
 
 document.getElementById("attackBtn").onclick=playerAttack
 
@@ -438,10 +429,44 @@ this.innerText=auto?"🟢オート戦闘ON":"🔴オート戦闘OFF"
 
 }
 
-/* スタート */
+document.getElementById("prioritySkill").onchange=function(){
+
+prioritySkill=parseInt(this.value)
+
+}
+
+/* 更新 */
+
+function update(){
+
+levelUp()
+
+document.getElementById("floor").innerText=floor
+
+document.getElementById("hp").innerText=playerHP+"/"+playerMax
+
+document.getElementById("mp").innerText=playerMP+"/"+playerMaxMP
+
+document.getElementById("level").innerText=level
+
+document.getElementById("exp").innerText=exp+"/"+expMax
+
+document.getElementById("gold").innerText=gold
+
+document.getElementById("enemyHP").innerText=enemyHP+"/"+enemyMax
+
+document.getElementById("hpbar").style.width=(playerHP/playerMax*100)+"%"
+
+document.getElementById("enemybar").style.width=(enemyHP/enemyMax*100)+"%"
+
+}
+
+/* 開始 */
 
 spawnEnemy()
+
 drawSkills()
+
 update()
 
 </script>
