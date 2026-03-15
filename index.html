@@ -72,7 +72,6 @@ border-radius:8px;
 <h2>🏯塔RPG</h2>
 
 <div class="panel">
-
 <h3 id="enemy"></h3>
 
 <div class="bar">
@@ -80,7 +79,6 @@ border-radius:8px;
 </div>
 
 <div id="enemyHP"></div>
-
 </div>
 
 <div class="panel">
@@ -116,6 +114,7 @@ border-radius:8px;
 <option value="2">⚡サンダー</option>
 <option value="3">💖ヒール</option>
 <option value="4">🛡バリア</option>
+
 </select>
 </label>
 
@@ -126,6 +125,8 @@ border-radius:8px;
 <div class="panel">
 
 <h3>🎒装備</h3>
+
+<button onclick="sortATK()">ATK順</button> <button onclick="sortDEF()">DEF順</button> <button onclick="sortMP()">MP順</button> <button onclick="sortRare()">レア順</button>
 
 <button onclick="combine()">🔨合成</button>
 
@@ -187,6 +188,30 @@ function log(t){
 logHistory.unshift(t)
 if(logHistory.length>6)logHistory.pop()
 document.getElementById("log").innerHTML=logHistory.join("<br>")
+}
+
+function createItem(r){
+
+let types=["sword","armor","ring"]
+let type=types[Math.floor(Math.random()*3)]
+
+let atk=0
+let def=0
+let mp=0
+
+if(type=="sword") atk=Math.floor(Math.random()*10)+floor
+if(type=="armor") def=Math.floor(Math.random()*8)+floor
+if(type=="ring") mp=Math.floor(Math.random()*15)+floor
+
+return{
+type:type,
+atk:atk,
+def:def,
+mp:mp,
+rarity:r,
+level:1
+}
+
 }
 
 function spawnEnemy(){
@@ -272,115 +297,19 @@ location.reload()
 
 }
 
-function levelUp(){
-
-if(exp>=expMax){
-
-exp-=expMax
-level++
-
-expMax=Math.floor(expMax*1.4)
-
-playerMax+=20
-playerMaxMP+=10
-attack+=2
-defense+=1
-
-playerHP=playerMax
-playerMP=playerMaxMP
-
-}
-
-}
-
-let skills=[
-
-{name:"🔥ファイア",cost:20,action(){
-if(playerMP<20)return
-playerMP-=20
-enemyHP-=attack*3
-}},
-
-{name:"❄アイス",cost:15,action(){
-if(playerMP<15)return
-playerMP-=15
-enemyHP-=attack*2
-if(Math.random()<0.5){
-enemyStatus.push({icon:"❄",turns:1})
-}
-}},
-
-{name:"⚡サンダー",cost:25,action(){
-if(playerMP<25)return
-playerMP-=25
-enemyHP-=attack*2.5
-if(Math.random()<0.5){
-enemyStatus.push({icon:"⚡",turns:2})
-}
-}},
-
-{name:"💖ヒール",cost:15,action(){
-if(playerMP<15)return
-playerMP-=15
-playerHP+=30
-if(playerHP>playerMax)playerHP=playerMax
-}},
-
-{name:"🛡バリア",cost:20,action(){
-if(playerMP<20)return
-playerMP-=20
-defense+=5
-setTimeout(()=>defense-=5,5000)
-}}
-
-]
-
-function drawSkills(){
-
-let html=""
-
-skills.forEach((s,i)=>{
-html+=`<button onclick="useSkill(${i})">${s.name}</button>`
-})
-
-document.getElementById("skills").innerHTML=html
-
-}
-
-function useSkill(i){
-
-skills[i].action()
-
-if(enemyHP<=0){
-
-gold+=10+floor
-exp+=5
-
-dropItem()
-
-setTimeout(()=>{next()},200)
-
-}else{
-
-enemyAttack()
-
-}
-
-update()
-
-}
-
 function dropItem(){
 
 let isBoss=enemy.includes("ボス")||enemy=="👑塔の支配者"
 
 if(isBoss && Math.random()<0.1){
 
-let atk=30+floor
-let def=20
-let mp=30
+let item=createItem("boss")
 
-inventory.push({atk,def,mp,rarity:"boss",level:1})
+item.atk+=30
+item.def+=20
+item.mp+=30
+
+inventory.push(item)
 
 log("💎ボス装備ドロップ")
 
@@ -393,11 +322,7 @@ if(Math.random()>0.3)return
 
 let r=rarity[Math.floor(Math.random()*5)]
 
-let atk=Math.floor(Math.random()*10)+floor
-let def=Math.floor(Math.random()*5)
-let mp=Math.floor(Math.random()*10)
-
-inventory.push({atk,def,mp,rarity:r,level:1})
+inventory.push(createItem(r))
 
 drawInventory()
 
@@ -409,9 +334,16 @@ let html=""
 
 inventory.forEach((i,index)=>{
 
+let icon=""
+
+if(i.type=="sword") icon="⚔"
+if(i.type=="armor") icon="🛡"
+if(i.type=="ring") icon="💍"
+
 html+=`
 <div class="item ${i.rarity}">
-ATK:${i.atk} DEF:${i.def} MP:${i.mp} Lv:${i.level}
+${icon} Lv${i.level}<br>
+ATK:${i.atk} DEF:${i.def} MP:${i.mp}
 <br>
 <button onclick="equip(${index})">装備</button>
 <button onclick="upgrade(${index})">強化</button>
@@ -477,19 +409,45 @@ a.reverse().forEach(i=>inventory.splice(i,1))
 let next=rarity.indexOf(r)+1
 if(next>=rarity.length)next=rarity.length-1
 
-inventory.push({
-atk:10,
-def:5,
-mp:5,
-rarity:rarity[next],
-level:1
-})
+inventory.push(createItem(rarity[next]))
 
 break
 
 }
 
 }
+
+drawInventory()
+
+}
+
+function sortATK(){
+inventory.sort((a,b)=>b.atk-a.atk)
+drawInventory()
+}
+
+function sortDEF(){
+inventory.sort((a,b)=>b.def-a.def)
+drawInventory()
+}
+
+function sortMP(){
+inventory.sort((a,b)=>b.mp-a.mp)
+drawInventory()
+}
+
+function sortRare(){
+
+let order={
+common:1,
+rare:2,
+epic:3,
+legend:4,
+mythic:5,
+boss:6
+}
+
+inventory.sort((a,b)=>order[b.rarity]-order[a.rarity])
 
 drawInventory()
 
@@ -514,11 +472,7 @@ gold-=100
 
 let r=rarity[Math.floor(Math.random()*5)]
 
-let atk=Math.floor(Math.random()*15)
-let def=Math.floor(Math.random()*8)
-let mp=Math.floor(Math.random()*15)
-
-inventory.push({atk,def,mp,rarity:r,level:1})
+inventory.push(createItem(r))
 
 drawInventory()
 
@@ -536,64 +490,7 @@ function toggleAuto(){
 auto=!auto
 }
 
-function autoBattle(){
-
-if(!auto)return
-
-let skill=skills[prioritySkill]
-
-if(playerMP>=skill.cost){
-
-skill.action()
-
-}else{
-
-playerAttack()
-
-}
-
-update()
-
-}
-
-setInterval(autoBattle,1000)
-
-function save(){
-
-let data={
-floor,level,exp,gold,inventory,uraTower
-}
-
-localStorage.setItem("towerRPG",JSON.stringify(data))
-
-}
-
-document.getElementById("prioritySkill").onchange=function(){
-prioritySkill=parseInt(this.value)
-}
-
-function update(){
-
-levelUp()
-
-document.getElementById("status").innerText=
-playerStatus.map(s=>s.icon).join(" ")
-
-document.getElementById("floor").innerText=floor
-document.getElementById("hp").innerText=playerHP+"/"+playerMax
-document.getElementById("mp").innerText=playerMP+"/"+playerMaxMP
-document.getElementById("level").innerText=level
-document.getElementById("exp").innerText=exp+"/"+expMax
-document.getElementById("gold").innerText=gold
-document.getElementById("enemyHP").innerText=enemyHP+"/"+enemyMax
-
-document.getElementById("hpbar").style.width=(playerHP/playerMax*100)+"%"
-document.getElementById("enemybar").style.width=(enemyHP/enemyMax*100)+"%"
-
-}
-
 spawnEnemy()
-drawSkills()
 drawInventory()
 update()
 
