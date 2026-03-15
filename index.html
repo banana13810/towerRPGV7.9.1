@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>塔RPG Ver7.4（オート進行＆ログ制限）</title>
+<style>
+body{font-family:sans-serif;text-align:center;background:#111;color:white;margin:0;padding:0;}
+.game{max-width:480px;margin:auto;padding:10px;}
+.bar{width:100%;height:20px;background:#333;border-radius:10px;margin:4px 0;}
+.barInner{height:20px;background:red;border-radius:10px;transition:width 0.3s ease;}
+.enemyBar{height:15px;background:lime;border-radius:10px;transition:width 0.3s ease;}
+button{margin:3px;padding:10px;font-size:16px;border-radius:6px;}
+.item{background:#222;padding:6px;margin:5px;border-radius:8px;}
+.common{color:white}.rare{color:#66aaff}.epic{color:#cc66ff}.legend{color:gold}.mythic{color:red}
+</style>
+</head>
+<body>
+<div class="game">
+<h1>🏯塔RPG Ver7.4</h1>
+
+<h3 id="enemy"></h3>
+<div class="bar"><div id="enemybar" class="enemyBar"></div></div>
+<div id="enemyHP"></div>
+
+<hr>
+
+<div>階層 <span id="floor"></span></div>
+<div class="bar"><div id="hpbar" class="barInner"></div></div>
+<div>HP <span id="hp"></span></div>
+<div>Lv <span id="level"></span></div>
+<div>EXP <span id="exp"></span></div>
+<div>💰 <span id="gold"></span></div>
+
+<button onclick="attack()">⚔攻撃</button>
+
+<hr>
+<h3>🎒装備</h3>
+<button onclick="sortAttack()">ATK順</button>
+<button onclick="sortRarity()">レア順</button>
+<div id="inventory"></div>
+
+<hr>
+<h3>🏪ショップ</h3>
+<button onclick="buyPotion()">ポーション 20G</button>
+<button onclick="gacha()">装備ガチャ 100G</button>
+
+<hr>
+<button onclick="saveGame()">💾セーブ</button>
+<div id="log"></div>
+</div>
+
+<script>
+// 初期値
+let floor=1, level=1, exp=0, expMax=10;
+let playerMax=100, playerHP=100, attackPower=5, defense=2, gold=0;
+let enemyHP=20, enemyMax=20, enemy="スライム";
+let inventory=[], equipment={weapon:null,armor:null,ring:null};
+let rarityList=["common","rare","epic","legend","mythic"], rarityOrder={common:1,rare:2,epic:3,legend:4,mythic:5};
+
+let logBox=document.getElementById("log");
+let logHistory=[]; // 最新5件ログ管理
+
+// ログ関数（最新5件まで）
+function log(text){
+    logHistory.unshift(text);
+    if(logHistory.length>5) logHistory.pop();
+    logBox.innerHTML = logHistory.join("<br>");
+}
+
+// 敵生成
+function spawnEnemy(){
+  enemyMax=20+floor*5;
+  enemyHP=enemyMax;
+  let enemies=["スライム","ゴブリン","オオカミ","骸骨"];
+  enemy=enemies[Math.floor(Math.random()*enemies.length)];
+  if(floor%10==0){enemy="🐉ボス";enemyMax=200+floor*10;enemyHP=enemyMax;}
+  document.getElementById("enemy").innerText=enemy;
+}
+
+// 攻撃
+function attack(){
+  if(enemyHP<=0)return;
+  let damage=attackPower;
+  if(Math.random()<0.15){damage*=2;alert("⚡クリティカル!");}
+  enemyHP-=damage;
+  log("⚔ "+damage+"ダメージ!");
+  if(enemyHP<=0){
+    enemyHP=0;
+    gold+=10+floor;
+    exp+=5;
+    dropItem();
+    // 自動で次の階に進む
+    setTimeout(nextFloor,500);
+  }
+  enemyAttack();
+  levelUp();
+  update();
+}
+
+// 敵攻撃
+function enemyAttack(){
+  if(enemyHP<=0)return;
+  let dmg=5-defense;if(dmg<1)dmg=1;
+  playerHP-=dmg;
+  if(playerHP<=0){alert("ゲームオーバー");location.reload();}
+  log("敵の攻撃 "+dmg+"ダメージ");
+}
+
+// レベルアップ
+function levelUp(){
+  if(exp>=expMax){exp=0;level++;attackPower+=2;playerMax+=10;playerHP=playerMax;expMax+=5;}
+}
+
+// 装備生成
+function dropItem(){
+  if(Math.random()>0.6)return;
+  let types=["weapon","armor","ring"];
+  let names=["剣","斧","弓","杖","鎧","指輪"];
+  let itemName=names[Math.floor(Math.random()*names.length)];
+  let item={name:itemName,type:types[Math.floor(Math.random()*3)],attack:Math.floor(Math.random()*10)+5,def:Math.floor(Math.random()*5),level:1,maxLevel:5,rarity:randomRarity()};
+  inventory.push(item);
+  drawInventory();
+}
+
+// ランダムレア
+function randomRarity(){let r=Math.random();if(r<0.6)return"common";if(r<0.85)return"rare";if(r<0.95)return"epic";if(r<0.99)return"legend";return"mythic";}
+
+// インベントリ表示
+function drawInventory(){
+  let html="";
+  inventory.forEach((item,i)=>{
+    html+=`<div class="item ${item.rarity}">${item.name} Lv${item.level}/${item.maxLevel} ATK ${item.attack} DEF ${item.def}<br>
+    <button onclick="equipItem(${i})">装備</button>
+    <button onclick="upgradeItem(${i})">強化</button>
+    <button onclick="sellItem(${i})">売却</button>
+    <button onclick="fuseItem(${i})">合成</button>
+    <button onclick="rarityFuse(${i})">レア合成</button></div>`;
+  });
+  document.getElementById("inventory").innerHTML=html;
+}
+
+// 装備管理
+function equipItem(i){let item=inventory[i];equipment[item.type]=item;updateStats();}
+function updateStats(){attackPower=5;defense=2;if(equipment.weapon)attackPower+=equipment.weapon.attack;if(equipment.armor)defense+=equipment.armor.def;if(equipment.ring)attackPower+=equipment.ring.attack;}
+
+// 強化
+function upgradeItem(i){let item=inventory[i];if(item.level>=item.maxLevel){alert("これ以上強化できない");return;}let cost=item.level*50;if(gold<cost)return;gold-=cost;item.level++;item.attack+=2;item.def+=1;drawInventory();update();}
+
+// 合成
+function fuseItem(i){let item=inventory[i];for(let j=0;j<inventory.length;j++){if(i!=j && inventory[j].name==item.name){item.maxLevel+=5;inventory.splice(j,1);alert("合成成功!");drawInventory();return;}}alert("同じ装備が必要");}
+
+// レア合成
+function rarityFuse(i){
+  let item=inventory[i];if(item.level<10){alert("Lv10以上必要");return;}
+  let same=[];for(let j=0;j<inventory.length;j++){if(inventory[j].name==item.name&&inventory[j].rarity==item.rarity&&inventory[j].level>=10)same.push(j);}
+  if(same.length<3){alert("3つ必要");return;}
+  let rIndex=rarityList.indexOf(item.rarity);if(rIndex>=rarityList.length-1){alert("最大レア");return;}
+  let totalAttack=0,totalDef=0,maxLevel=0;
+  for(let k=0;k<3;k++){totalAttack+=inventory[same[k]].attack;totalDef+=inventory[same[k]].def;if(inventory[same[k]].maxLevel>maxLevel)maxLevel=inventory[same[k]].maxLevel;}
+  for(let k=2;k>=0;k--) inventory.splice(same[k],1);
+  let newItem={name:item.name,type:item.type,attack:totalAttack+5,def:totalDef+3,level:1,maxLevel:maxLevel+5,rarity:rarityList[rIndex+1]};
+  inventory.push(newItem);
+  alert("✨レア度アップ! 自動装備されました!");
+  equipment[newItem.type]=newItem;
+  drawInventory();
+  updateStats();
+}
+
+// 売却
+function sellItem(i){let item=inventory[i];gold+=item.attack*5;inventory.splice(i,1);drawInventory();}
+
+// ショップ
+function buyPotion(){if(gold<20)return;gold-=20;playerHP+=30;if(playerHP>playerMax)playerHP=playerMax;}
+function gacha(){if(gold<100)return;gold-=100;dropItem();alert("ガチャ!");}
+
+// ソート
+function sortAttack(){inventory.sort((a,b)=>b.attack-a.attack);drawInventory();}
+function sortRarity(){inventory.sort((a,b)=>rarityOrder[b.rarity]-rarityOrder[a.rarity]);drawInventory();}
+
+// 次の階
+function nextFloor(){floor++;spawnEnemy();update();}
+
+// 更新
+function update(){
+document.getElementById("floor").innerText=floor;
+document.getElementById("hp").innerText=playerHP+"/"+playerMax;
+document.getElementById("level").innerText=level;
+document.getElementById("exp").innerText=exp+"/"+expMax;
+document.getElementById("gold").innerText=gold;
+document.getElementById("enemyHP").innerText=enemyHP+"/"+enemyMax;
+document.getElementById("hpbar").style.width=(playerHP/playerMax*100)+"%";
+document.getElementById("enemybar").style.width=(enemyHP/enemyMax*100)+"%";
+}
+
+// セーブ
+function saveGame(){localStorage.setItem("towerSave",JSON.stringify({floor, level, gold, attackPower, playerMax, playerHP, inventory, equipment}));alert("ゲームをセーブしました！");}
+
+// 読み込み
+function loadGame(){let data=localStorage.getItem("towerSave");if(!data)return;let d=JSON.parse(data);floor=d.floor;level=d.level;gold=d.gold;attackPower=d.attackPower;playerMax=d.playerMax;playerHP=d.playerHP;inventory=d.inventory||[];equipment=d.equipment||{weapon:null,armor:null,ring:null};}
+
+loadGame();
+spawnEnemy();
+update();
+</script>
+</body>
+</html>
