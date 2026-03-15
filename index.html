@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>塔RPG Ver7.5.1（MP数字表示）</title>
+<title>塔RPG Ver7.5.2（MP数字表示・攻撃復活）</title>
 <style>
 body{font-family:sans-serif;text-align:center;background:#111;color:white;margin:0;padding:0;}
 .game{max-width:480px;margin:auto;padding:10px;}
@@ -18,7 +18,7 @@ button{margin:3px;padding:10px;font-size:16px;border-radius:6px;}
 </head>
 <body>
 <div class="game">
-<h1>🏯塔RPG Ver7.5.1</h1>
+<h1>🏯塔RPG Ver7.5.2</h1>
 
 <h3 id="enemy"></h3>
 <div class="bar"><div id="enemybar" class="enemyBar"></div></div>
@@ -36,7 +36,7 @@ button{margin:3px;padding:10px;font-size:16px;border-radius:6px;}
 <div>EXP <span id="exp"></span></div>
 <div>💰 <span id="gold"></span></div>
 
-<button onclick="attack()">⚔攻撃</button>
+<button id="attackBtn">⚔攻撃</button>
 <div id="skillButtons"></div>
 
 <hr>
@@ -241,7 +241,7 @@ let skills=[
   }}
 ];
 
-// スキルボタン描画
+// スキルボタン描画（ゲーム開始時のみ）
 function drawSkills(){
   let html="";
   skills.forEach((s,i)=>{
@@ -250,7 +250,7 @@ function drawSkills(){
   document.getElementById("skillButtons").innerHTML=html;
 }
 
-// 更新
+// 更新（バーや数字だけ）
 function update(){
   document.getElementById("floor").innerText=floor;
   document.getElementById("hp").innerText=playerHP+"/"+playerMax;
@@ -261,7 +261,6 @@ function update(){
   document.getElementById("enemyHP").innerText=enemyHP+"/"+enemyMax;
   document.getElementById("hpbar").style.width=(playerHP/playerMax*100)+"%";
   document.getElementById("enemybar").style.width=(enemyHP/enemyMax*100)+"%";
-  drawSkills();
 }
 
 // セーブ
@@ -270,8 +269,11 @@ function saveGame(){localStorage.setItem("towerSave",JSON.stringify({floor, leve
 // 読み込み
 function loadGame(){let data=localStorage.getItem("towerSave");if(!data)return;let d=JSON.parse(data);floor=d.floor;level=d.level;gold=d.gold;attackPower=d.attackPower;playerMax=d.playerMax;playerHP=d.playerHP;playerMaxMP=d.playerMaxMP;playerMP=d.playerMP;inventory=d.inventory||[];equipment=d.equipment||{weapon:null,armor:null,ring:null};}
 
+// 初期化
 loadGame();
 spawnEnemy();
+drawSkills();
+document.getElementById("attackBtn").onclick=attack;
 update();
 </script>
 </body>
