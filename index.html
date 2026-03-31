@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>塔RPG V4.0</title>
+<title>塔RPG V4.1</title>
 
 <style>
 body{background:#111;color:white;font-family:sans-serif;margin:0}
@@ -23,7 +23,7 @@ button{background:#333;color:white;border:none;padding:8px;margin:3px;border-rad
 <body>
 <div class="game">
 
-<h2>🏯塔RPG V4.0</h2>
+<h2>🏯塔RPG V4.1</h2>
 
 <div class="panel">
 <div id="enemy"></div>
@@ -97,7 +97,6 @@ let equipped={sword:null,armor:null,ring:null}
 let logHistory=[]
 let battleEnd=false
 
-// ★クリティカル
 let critRate=0.05
 let critDamage=2
 
@@ -108,14 +107,11 @@ if(logHistory.length>8)logHistory.pop()
 document.getElementById("log").innerHTML=logHistory.join("<br>")
 }
 
-// ===== ダメージ計算 =====
+// ===== ダメージ =====
 function calcDamage(base){
 let isCrit=Math.random()<critRate
 let dmg=base
-if(isCrit){
-dmg*=critDamage
-log("💥クリティカル！")
-}
+if(isCrit){dmg*=critDamage;log("💥クリティカル！")}
 return Math.floor(dmg)
 }
 
@@ -124,18 +120,14 @@ function spawnEnemy(){
 let list=["スライム","ゴブリン","オオカミ","骸骨"]
 enemy=list[Math.floor(Math.random()*list.length)]
 enemyMax=20+floor*6
-
-if(floor%10==0){
-enemy="🐉ボス"
-enemyMax=250+floor*12
-}
-
+if(floor%10==0){enemy="🐉ボス";enemyMax=250+floor*12}
 enemyHP=enemyMax
 document.getElementById("enemy").innerText=enemy
 }
 
 // ===== 戦闘 =====
 function playerAttack(){
+if(battleEnd)return
 let dmg=calcDamage(attack)
 enemyHP-=dmg
 log("⚔ "+dmg)
@@ -148,13 +140,10 @@ if(enemyHP<=0 || battleEnd)return
 
 let dmg=Math.max(1,5+floor-defense)
 
-// ★200階AI
+// 200階AI
 if(floor>=200 && !enemy.includes("ボス")){
 let r=Math.random()
-if(r<0.25){
-dmg*=1.8
-log("👾強攻撃 "+Math.floor(dmg))
-}
+if(r<0.25){dmg*=1.8;log("👾強攻撃 "+Math.floor(dmg))}
 else if(r<0.4){
 let heal=Math.floor(enemyMax*0.08)
 enemyHP=Math.min(enemyHP+heal,enemyMax)
@@ -164,13 +153,10 @@ return
 }
 }
 
-// ボス
+// ボスAI
 if(enemy.includes("ボス")){
 let r=Math.random()
-if(r<0.3){
-dmg*=2
-log("🐉強攻撃 "+dmg)
-}
+if(r<0.3){dmg*=2;log("🐉強攻撃 "+dmg)}
 else if(r<0.45){
 let heal=Math.floor(enemyMax*0.1)
 enemyHP=Math.min(enemyHP+heal,enemyMax)
@@ -193,8 +179,11 @@ update()
 }
 
 function battleCheck(){
+if(battleEnd)return
+
 if(enemyHP<=0){
 battleEnd=true
+enemyHP=0
 
 gold+=10+floor
 exp+=5
@@ -206,13 +195,11 @@ inventory.push(createItem())
 log("🎁ボス報酬")
 }
 
-setTimeout(()=>{
-battleEnd=false
-next()
-},300)
+setTimeout(()=>{next()},300)
+return
+}
 
-}else enemyAttack()
-
+enemyAttack()
 update()
 }
 
@@ -249,7 +236,6 @@ return
 }
 
 let p=Number(document.getElementById("prioritySkill").value)
-
 if(playerMP>=skills[p].cost)skills[p].action()
 else playerAttack()
 }
@@ -261,15 +247,7 @@ function createItem(){
 let types=["sword","armor","ring"]
 let type=types[Math.floor(Math.random()*3)]
 
-// ★レア
-let r=Math.random()
-let rank=0
-if(r>0.95)rank=4
-else if(r>0.85)rank=3
-else if(r>0.7)rank=2
-else if(r>0.4)rank=1
-
-let boost=1+rank*0.5
+let boost=1+Math.random()*2
 
 return{
 type,
@@ -277,8 +255,7 @@ atk:Math.floor((Math.random()*20+floor)*boost),
 def:Math.floor(Math.random()*15*boost),
 mp:Math.floor(Math.random()*20*boost),
 crit:Math.random()*0.05,
-plus:0,
-rarity:rank
+plus:0
 }
 }
 
@@ -300,9 +277,9 @@ CRIT:${(i.crit*100).toFixed(1)}%<br>
 }).join("")
 }
 
-// 装備
 function equip(i){
 let item=inventory[i]
+if(!item || equipped[item.type]===item)return
 
 if(equipped[item.type]){
 attack-=equipped[item.type].atk
@@ -324,16 +301,12 @@ log("🆙装備変更")
 update()
 }
 
-// ★強化
 function upgrade(i){
 let item=inventory[i]
+if(!item)return
 
 let cost=20*(item.plus+1)
-
-if(gold<cost){
-log("💸金不足")
-return
-}
+if(gold<cost){log("💸金不足");return}
 
 gold-=cost
 
@@ -343,20 +316,19 @@ item.def=Math.floor(item.def*1.1)
 item.mp=Math.floor(item.mp*1.1)
 item.crit+=0.002
 
+if(equipped[item.type]===item){
+equip(i)
+}
+
 log("🔧強化 +"+item.plus)
 
 drawInventory()
 update()
 }
 
-// 売却
 function sell(i){
 let item=inventory[i]
-
-if(equipped[item.type]===item){
-log("⚠装備中は売れない")
-return
-}
+if(equipped[item.type]===item){log("⚠装備中は売れない");return}
 
 gold+=20
 inventory.splice(i,1)
@@ -365,7 +337,6 @@ drawInventory()
 update()
 }
 
-// 合成
 function combine(){
 if(inventory.length<3)return
 inventory.sort((a,b)=>(a.atk+a.def+a.mp)-(b.atk+b.def+b.mp))
@@ -374,7 +345,7 @@ inventory.push(createItem())
 drawInventory()
 }
 
-// ===== 他 =====
+// ===== その他 =====
 function sortATK(){inventory.sort((a,b)=>b.atk-a.atk);drawInventory()}
 function sortDEF(){inventory.sort((a,b)=>b.def-a.def);drawInventory()}
 function sortMP(){inventory.sort((a,b)=>b.mp-a.mp);drawInventory()}
@@ -393,7 +364,12 @@ inventory.push(createItem())
 drawInventory()
 }
 
-function next(){floor++;spawnEnemy();update()}
+function next(){
+floor++
+spawnEnemy()
+battleEnd=false
+update()
+}
 
 function levelUp(){
 while(exp>=expMax){
@@ -444,6 +420,9 @@ update()
 // ===== 更新 =====
 function update(){
 levelUp()
+
+enemyHP=Math.max(0,enemyHP)
+playerHP=Math.max(0,playerHP)
 
 document.getElementById("floor").innerText=floor
 document.getElementById("hp").innerText=playerHP+"/"+playerMax
